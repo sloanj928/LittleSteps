@@ -34,6 +34,23 @@ export function foodsByGroup(foods: readonly Entry[]): Record<FoodGroup, number>
   return groups;
 }
 
+/**
+ * Words by the letter they start with, accents folded so a Polish "Śmieci"
+ * or "Żaba" files under S and Z; anything that isn't a letter goes under
+ * "#". Also which letters have a word in `fresh`, for the bounce.
+ */
+export function wordsByLetter(words: readonly Entry[], fresh: ReadonlySet<string> = new Set()) {
+  const counts = new Map<string, number>();
+  const freshLetters = new Set<string>();
+  for (const e of words) {
+    const first = (e.title.trim()[0] ?? '').toUpperCase().normalize('NFD').replace(/\p{M}/gu, '').replace('Ł', 'L');
+    const letter = /^[A-Z]$/.test(first) ? first : '#';
+    counts.set(letter, (counts.get(letter) ?? 0) + 1);
+    if (fresh.has(e.id)) freshLetters.add(letter);
+  }
+  return { counts, freshLetters };
+}
+
 export function foodsSummary(baby: Baby, foods: readonly Entry[]): string {
   if (!foods.length) return `No foods saved for ${baby.name} yet.`;
   const groups = foodsByGroup(foods);

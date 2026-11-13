@@ -13,7 +13,7 @@ export const PALETTE_IDS = ['sage', 'blush', 'sky', 'sand', 'lavender'] as const
 export type PaletteId = (typeof PALETTE_IDS)[number];
 /** Remembers the palette so the server can render the right colours on the very first paint. */
 export const PALETTE_COOKIE = 'ls_palette';
-export const THEME_IDS = ['classic', 'nursery'] as const;
+export const THEME_IDS = ['classic', 'nursery', 'storybook', 'garden', 'ocean', 'space'] as const;
 export type ThemeId = (typeof THEME_IDS)[number];
 
 export interface MeUser {

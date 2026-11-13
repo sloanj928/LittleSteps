@@ -7,10 +7,14 @@ import ButtonBase from '@mui/material/ButtonBase';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
 import Link from 'next/link';
+import { useState } from 'react';
 import { ageInMonths, ageOrigin, formatAge, localToday } from '@/lib/dates';
-import { formatWeight, growthSeries } from '@/lib/growth/insights';
+import { formatWeight, growthSeries, MEASURE_LABELS } from '@/lib/growth/insights';
+import type { Measure } from '@/lib/growth/percentiles';
 import { pickNudge } from '@/lib/milestones';
 import type { BabyBundle } from '@/lib/types';
 import { api } from '@/ui/api';
@@ -85,11 +89,16 @@ function Nudge({ baby, bundle, loggedKeys }: { baby: BabyInHousehold; bundle: Ba
   );
 }
 
+const HOME_MEASURES: Measure[] = ['length', 'weight', 'head'];
+
 export default function HomePage() {
   const { baby, babies, household, canEdit, selectBaby, openAdd } = useApp();
   const { data: bundle, error, refetch } = useBabyBundle(baby?.id);
   const { firsts, foods, words, loggedKeys } = useEntriesByKind(bundle);
   const { ls } = useTokens();
+  // Length first: it's the number families ask about most, and the one the
+  // doorframe and its cousins were drawn for.
+  const [measure, setMeasure] = useState<Measure>('length');
 
   if (!baby) {
     const owner = household?.role === 'owner';
@@ -113,6 +122,7 @@ export default function HomePage() {
   const origin = ageOrigin(baby, today);
   const weights = growthSeries(baby, bundle.measurements, 'weight');
   const lastWeight = weights[weights.length - 1];
+  const points = measure === 'weight' ? weights : growthSeries(baby, bundle.measurements, measure);
   const foodCount = Object.values(foodsByGroup(foods)).reduce((a, b) => a + b, 0);
   const add = (label: string, kind: Parameters<typeof openAdd>[0]) =>
     canEdit ? (
@@ -172,9 +182,18 @@ export default function HomePage() {
       <Display
         chart
         title="Growth"
-        summary={growthSummary(baby, 'weight', weights)}
-        render={(t) => <t.Growth baby={baby} measure="weight" points={weights} />}
-        empty={weights.length ? undefined : { text: 'Add a weight to start the growth chart.', action: add('Add a measurement', 'growth') }}
+        summary={growthSummary(baby, measure, points)}
+        render={(t) => <t.Growth baby={baby} measure={measure} points={points} />}
+        empty={points.length ? undefined : { text: `Add a ${MEASURE_LABELS[measure].toLowerCase()} measurement to start.`, action: add('Add a measurement', 'growth') }}
+        toolbar={
+          <ToggleButtonGroup exclusive fullWidth size="small" value={measure} onChange={(_, m: Measure | null) => m && setMeasure(m)} aria-label="Measurement">
+            {HOME_MEASURES.map((m) => (
+              <ToggleButton key={m} value={m} sx={{ minHeight: 44 }}>
+                {MEASURE_LABELS[m]}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+        }
         header={
           <Button component={Link} href="/growth" size="small">
             Open

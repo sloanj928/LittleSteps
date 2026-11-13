@@ -6,7 +6,7 @@ import { formatMeasure, formatWeight, type GrowthPoint } from '@/lib/growth/insi
 import { useTokens } from '../Providers';
 import { SiblingLegend } from './classic';
 import { svgProps, W, wobble } from './drawing';
-import { useFresh } from './fresh';
+import { f1, makeRings, radiusScale, RingDiagram, ringPath, ringPoint, TAU, useFreshPoints, type RingFrame } from './kit';
 import { shortAge } from './summaries';
 import type { GrowthSlotProps, SiblingsSlotProps } from './types';
 
@@ -15,70 +15,18 @@ import type { GrowthSlotProps, SiblingsSlotProps } from './types';
 // and a weight is read off a scale.
 
 const H = 300;
-const TAU = Math.PI * 2;
-const f1 = (n: number) => n.toFixed(1);
 
 // --- Tree rings (head) ---------------------------------------------------------
 
 // Sized so the widest lobe and its bark clear both the left edge and the labels.
-const TREE = { cx: 112, cy: 150, rOut: 90, rIn: 22, bark: 9, labelX: 230 };
-// Labels on the right are this far apart at least; more rings than fit go unlabelled.
-const MAX_RING_LABELS = 7;
-
-type Shape = (a: number) => number;
-
-/**
- * A trunk's outline as a multiplier on the radius at each angle: a few slow
- * lobes, never a circle, the same for every ring so they nest the way real
- * rings do. Seeded by the baby, so each child's tree keeps its shape.
- */
-function trunkShape(seed: string): Shape {
-  const p = [1, 2, 3, 4].map((i) => wobble(`${seed}:${i}`) * Math.PI);
-  return (a) => 1 + 0.045 * Math.sin(2 * a + p[0]) + 0.03 * Math.sin(3 * a + p[1]) + 0.014 * Math.sin(5 * a + p[2]) + 0.008 * Math.sin(9 * a + p[3]);
-}
-
-interface Trunk {
-  shape: Shape;
-  /** The pith, off centre as it usually is. Inner rings centre on it; outer rings drift back to the trunk's middle. */
-  pith: { x: number; y: number };
-  cx: number;
-  cy: number;
-  rOut: number;
-}
-
-function makeTrunk(seed: string, cx: number, cy: number, rOut: number): Trunk {
-  return { shape: trunkShape(seed), pith: { x: cx + wobble(`${seed}:px`) * rOut * 0.1, y: cy + wobble(`${seed}:py`) * rOut * 0.1 }, cx, cy, rOut };
-}
-
-/** A point on the ring of radius r at angle a, with its own slight unevenness (seeded by `id`) on top of the trunk's shape. */
-function ringPoint(t: Trunk, r: number, a: number, id: string): [number, number] {
-  const k = r / t.rOut;
-  const x0 = t.pith.x + (t.cx - t.pith.x) * k;
-  const y0 = t.pith.y + (t.cy - t.pith.y) * k;
-  const rr = r * (t.shape(a) + 0.007 * Math.sin(7 * a + wobble(id) * Math.PI));
-  return [x0 + rr * Math.cos(a), y0 + rr * Math.sin(a)];
-}
-
-function ringPath(t: Trunk, r: number, id: string): string {
-  const n = 120;
-  const pts = Array.from({ length: n }, (_, i) => ringPoint(t, r, (i / n) * TAU, id));
-  return `M${pts.map(([x, y]) => `${f1(x)},${f1(y)}`).join('L')}Z`;
-}
-
-/** Radius by value: the smallest reading near the pith, the largest at the bark. */
-function radiusScale(values: number[], rIn: number, rOut: number) {
-  const lo = Math.min(...values);
-  const hi = Math.max(...values);
-  return (v: number) => (hi === lo ? rOut : rIn + ((v - lo) / (hi - lo)) * (rOut - rIn));
-}
-
+const TREE = { cx: 112, cy: 150, rOut: 90, rIn: 22, bark: 9 };
 /**
  * One cross-section: bark, then each reading as a band of wood from the
  * outside in, alternating light and dark like early and late wood, with a
  * drying crack for character. The outermost ring is the newest growth, and
  * when it's new it grows out from under the bark.
  */
-function Trunk({ trunk, points, radius, freshId }: { trunk: Trunk; points: GrowthPoint[]; radius: (v: number) => number; freshId?: string }) {
+export function Trunk({ trunk, points, radius, freshId }: { trunk: RingFrame; points: GrowthPoint[]; radius: (v: number) => number; freshId?: string }) {
   const { art } = useTokens();
   const rings = [...points].sort((a, b) => b.value - a.value);
   const outer = rings[0];
@@ -103,42 +51,21 @@ function Trunk({ trunk, points, radius, freshId }: { trunk: Trunk; points: Growt
       </g>
       {rings.slice(1).map((p, i) => band(p, i + 1))}
       <path d={`M${f1(kx)},${f1(ky)} L${f1(jx)},${f1(jy)}`} stroke={art.bark} strokeWidth={1.6} strokeLinecap="round" opacity={0.6} />
-      <circle cx={f1(trunk.pith.x)} cy={f1(trunk.pith.y)} r={2.5} fill={art.woodDark} />
+      <circle cx={f1(trunk.core.x)} cy={f1(trunk.core.y)} r={2.5} fill={art.woodDark} />
     </g>
   );
 }
 
 function TreeRings({ baby, measure, points }: GrowthSlotProps) {
   const { art } = useTokens();
-  const fresh = useFresh(`growth:${measure}:${baby.id}`, points.map((p) => p.id));
-  const trunk = makeTrunk(baby.id, TREE.cx, TREE.cy, TREE.rOut);
+  const fresh = useFreshPoints(baby, measure, points);
+  const trunk = makeRings(baby.id, TREE.cx, TREE.cy, TREE.rOut);
   const radius = points.length ? radiusScale(points.map((p) => p.value), TREE.rIn, TREE.rOut) : () => TREE.rOut;
-  // Newest first, then the first reading; the rest are rings without a label.
-  const labelled = points.length <= MAX_RING_LABELS ? [...points].reverse() : [...points.slice(-(MAX_RING_LABELS - 1)).reverse(), points[0]];
   const lastId = points[points.length - 1]?.id;
-  const slot = (i: number) => (labelled.length === 1 ? TREE.cy : 40 + (i * (H - 80)) / (labelled.length - 1));
-  // Outermost (largest) ring takes the top slot, so leaders don't cross.
-  const byValue = [...labelled].sort((a, b) => b.value - a.value);
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} {...svgProps}>
-      <rect x={0} y={0} width={W} height={H} rx={18} fill={art.wall} />
+    <RingDiagram frame={trunk} points={points} measure={measure} radius={radius} color={art.pencil} fresh={fresh} background={<rect x={0} y={0} width={W} height={H} rx={18} fill={art.wall} />}>
       <Trunk trunk={trunk} points={points} radius={radius} freshId={lastId && fresh.has(lastId) ? lastId : undefined} />
-      {byValue.map((p, i) => {
-        const y = slot(i);
-        const a = Math.atan2(y - TREE.cy, TREE.labelX - 8 - TREE.cx);
-        const [x0, y0] = ringPoint(trunk, radius(p.value), a, p.id);
-        const newest = p.id === lastId;
-        return (
-          <g key={p.id} className={fresh.has(p.id) ? 'ls-pop' : undefined}>
-            <line x1={f1(x0)} y1={f1(y0)} x2={TREE.labelX - 6} y2={f1(y)} stroke={art.pencil} strokeWidth={1} opacity={0.7} />
-            <circle cx={f1(x0)} cy={f1(y0)} r={2.4} fill={art.pencil} />
-            <text x={TREE.labelX} y={f1(y + 4)} style={{ fontSize: 12, fill: art.pencil, fontWeight: newest ? 800 : 600, fontFamily: 'inherit' }}>
-              {shortAge(p.ageMonths)} · {formatMeasure(measure, p.value)}
-            </text>
-          </g>
-        );
-      })}
-    </svg>
+    </RingDiagram>
   );
 }
 
@@ -157,7 +84,7 @@ function SiblingTrees({ measure, series }: SiblingsSlotProps) {
           const last = s.points[s.points.length - 1];
           return (
             <g key={s.baby.id}>
-              <Trunk trunk={makeTrunk(s.baby.id, cx, 100, s.points.length ? radius(Math.max(...s.points.map((p) => p.value))) : r)} points={s.points} radius={radius} />
+              <Trunk trunk={makeRings(s.baby.id, cx, 100, s.points.length ? radius(Math.max(...s.points.map((p) => p.value))) : r)} points={s.points} radius={radius} />
               {last && (
                 <text x={cx} y={215} textAnchor="middle" style={{ fontSize: 12.5, fontWeight: 800, fill: colors[i], fontFamily: 'inherit' }}>
                   {shortAge(last.ageMonths)} · {formatMeasure(measure, last.value)}
@@ -254,7 +181,7 @@ function Hub() {
 
 function ScaleDial({ baby, measure, points }: GrowthSlotProps) {
   const { art, ls } = useTokens();
-  const fresh = useFresh(`growth:${measure}:${baby.id}`, points.map((p) => p.id));
+  const fresh = useFreshPoints(baby, measure, points);
   const max = dialMax(Math.max(160, ...points.map((p) => p.value)));
   const last = points[points.length - 1];
   const prev = points[points.length - 2];

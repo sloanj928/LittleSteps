@@ -136,7 +136,7 @@ test('sign up, set up a household, record a first evening', async ({ page, brows
     await page.getByLabel('Date').fill(date);
     await page.getByLabel('Pounds').fill(lb);
     await page.getByLabel('Ounces').fill(oz);
-    await page.getByLabel('Length').fill(length);
+    await page.getByLabel('Length', { exact: true }).fill(length);
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(page.getByText('Measurement saved for Juniper.')).toBeVisible();
   }

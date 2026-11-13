@@ -173,6 +173,25 @@ export interface Art {
   enamel: string;
   face: string;
   needle: string;
+  /** Space: the night sky, its stars, and text drawn on it. */
+  night: string;
+  nightLight: string;
+  star: string;
+  onNight: string;
+  /** Garden: sky, grass, soil and a sunflower's petals. */
+  sky: string;
+  grass: string;
+  grassDark: string;
+  soil: string;
+  petal: string;
+  /** Ocean: water, foam and sand. */
+  water: string;
+  waterDeep: string;
+  foam: string;
+  sand: string;
+  /** Storybook: the page, and gold for stickers and stars. */
+  paper: string;
+  gold: string;
 }
 
 export function artTokens(mode: 'light' | 'dark'): Art {
@@ -196,6 +215,21 @@ export function artTokens(mode: 'light' | 'dark'): Art {
       enamel: '#c9dceb',
       face: '#fffaf0',
       needle: '#c4524a',
+      night: '#26315a',
+      nightLight: '#3a4778',
+      star: '#ffe39a',
+      onNight: '#f4f0e6',
+      sky: '#dceef6',
+      grass: '#a6d38f',
+      grassDark: '#74ab61',
+      soil: '#a97d58',
+      petal: '#f5c440',
+      water: '#a9d3e4',
+      waterDeep: '#6aa8c6',
+      foam: '#f2fbff',
+      sand: '#efdfb9',
+      paper: '#fbf4e4',
+      gold: '#f2c14e',
     };
   }
   return {
@@ -217,5 +251,20 @@ export function artTokens(mode: 'light' | 'dark'): Art {
     enamel: '#4d6273',
     face: '#35322d',
     needle: '#e07a70',
+    night: '#151b33',
+    nightLight: '#252e52',
+    star: '#f0d27e',
+    onNight: '#ece6d8',
+    sky: '#22303a',
+    grass: '#4e7a44',
+    grassDark: '#3a5d33',
+    soil: '#5b4332',
+    petal: '#d6a737',
+    water: '#2c5366',
+    waterDeep: '#1f3e4e',
+    foam: '#9fc0cf',
+    sand: '#6b5f47',
+    paper: '#2f2b25',
+    gold: '#d8a73a',
   };
 }

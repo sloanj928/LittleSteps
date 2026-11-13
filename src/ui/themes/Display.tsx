@@ -11,10 +11,14 @@ import { useState, type ReactNode } from 'react';
 import type { ThemeId } from '@/lib/types';
 import { useApp } from '../app/AppShell';
 import { classicTheme } from './classic';
+import { gardenTheme } from './garden';
 import { nurseryTheme } from './nursery';
+import { oceanTheme } from './ocean';
+import { spaceTheme } from './space';
+import { storybookTheme } from './storybook';
 import type { DisplayTheme } from './types';
 
-export const THEMES: Record<ThemeId, DisplayTheme> = { classic: classicTheme, nursery: nurseryTheme };
+export const THEMES: Record<ThemeId, DisplayTheme> = { classic: classicTheme, nursery: nurseryTheme, storybook: storybookTheme, garden: gardenTheme, ocean: oceanTheme, space: spaceTheme };
 
 interface Props {
   title: string;
@@ -28,6 +32,8 @@ interface Props {
   empty?: { text: string; action?: ReactNode };
   /** Extra controls for the header, beside the Data toggle. */
   header?: ReactNode;
+  /** A row of controls between the header and the display, such as which measure to show. */
+  toolbar?: ReactNode;
   /** Shown under the display, in both views. */
   children?: ReactNode;
 }
@@ -38,7 +44,7 @@ interface Props {
  * slot). Whether it opens on the picture or the data is a setting; the
  * switch on each card only lasts until the screen is left.
  */
-export function Display({ title, summary, render, chart, empty, header, children }: Props) {
+export function Display({ title, summary, render, chart, empty, header, toolbar, children }: Props) {
   const { me } = useApp();
   const theme = THEMES[me.user.theme] ?? classicTheme;
   const illustrated = theme.id !== 'classic';
@@ -62,6 +68,7 @@ export function Display({ title, summary, render, chart, empty, header, children
             </Button>
           )}
         </Stack>
+        {toolbar}
         {drawn ? (
           // The drawing itself is aria-hidden; this sentence is what a screen reader hears for it.
           <Box role="img" aria-label={summary}>
