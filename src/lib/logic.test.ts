@@ -47,7 +47,11 @@ describe('food groups', () => {
     expect(guessFoodGroup('mashed bananas')).toBe('fruit');
     expect(guessFoodGroup('Sweet potato')).toBe('vegetable');
     expect(guessFoodGroup('Greek yogurt')).toBe('dairy');
-    expect(guessFoodGroup('Dragonfruit')).toBe('other');
+    expect(guessFoodGroup('Moussaka')).toBe('other');
+    // A listed mixed dish stays in "other" rather than being filed by its last word.
+    expect(guessFoodGroup('Fried rice')).toBe('other');
+    expect(guessFoodGroup('Paneer')).toBe('dairy');
+    expect(guessFoodGroup('Plantain')).toBe('fruit');
   });
 });
 

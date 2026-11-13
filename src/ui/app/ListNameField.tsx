@@ -9,6 +9,7 @@ import { formatEntryDate } from '@/lib/dates';
 import { FOOD_SUGGESTIONS } from '@/lib/foods';
 import { nameKey, rankMatches } from '@/lib/match';
 import type { Entry } from '@/lib/types';
+import { WORD_SUGGESTIONS } from '@/lib/words';
 
 interface Option {
   name: string;
@@ -21,14 +22,15 @@ const MAX_SHOWN = 8;
 /**
  * The name box for a food or word. As the family types, the dropdown shows
  * what's already on the list, close spellings included ("bananna" finds
- * Banana), above common first foods not yet tried. Picking an "already
+ * Banana), above common first foods or words not yet on it. Picking an "already
  * added" name makes the form point at the existing entry rather than save a
  * second one.
  */
 export function ListNameField({ kind, label, value, onChange, existing, problem }: { kind: 'food' | 'word'; label: string; value: string; onChange: (value: string) => void; existing: Entry[]; problem?: string }) {
   const options = useMemo<Option[]>(() => {
     const listed = new Set(existing.map((e) => nameKey(e.title)));
-    const suggestions = kind === 'food' ? FOOD_SUGGESTIONS.filter((name) => !listed.has(nameKey(name))).map((name) => ({ name })) : [];
+    const common = kind === 'food' ? FOOD_SUGGESTIONS : WORD_SUGGESTIONS;
+    const suggestions = common.filter((name) => !listed.has(nameKey(name))).map((name) => ({ name }));
     return [...existing.map((entry) => ({ name: entry.title, entry })), ...suggestions];
   }, [existing, kind]);
 

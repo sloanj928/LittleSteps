@@ -110,6 +110,18 @@ test('sign up, set up a household, record a first evening', async ({ page, brows
     await expect(page.getByText(`${word} saved for Juniper.`)).toBeVisible();
   }
 
+  // Words get the same dropdown: common first words, and a misspelling finds one already saved.
+  await page.getByRole('button', { name: 'Add something for Juniper' }).click();
+  await page.getByRole('button', { name: /Word/ }).first().click();
+  await page.getByRole('combobox', { name: 'Word' }).fill('mam');
+  await expect(page.getByRole('option', { name: 'Mama' })).toBeVisible();
+  await shot(page, '04b-word-suggestions');
+  await page.getByRole('combobox', { name: 'Word' }).fill('Dadda');
+  await page.getByRole('option', { name: /Dada.*Added/ }).click();
+  await expect(page.getByText('is already on the list')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Close' }).click();
+
   // Measurements: the growth chart needs a few points.
   for (const [date, lb, oz, length] of [
     ['2026-03-10', '7', '6', '19.5'],
@@ -164,6 +176,8 @@ test('sign up, set up a household, record a first evening', async ({ page, brows
   await page.getByRole('link', { name: /Dada/ }).click();
   await page.getByRole('button', { name: 'Edit' }).click();
   await page.getByLabel('Word', { exact: true }).fill('Dada!');
+  // Tap away to close the suggestions, which can sit over Save on a short screen.
+  await page.getByRole('heading', { name: 'Edit word' }).click();
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByText('Edit history')).toBeVisible();
   await shot(page, '10-entry');
