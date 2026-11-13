@@ -167,6 +167,12 @@ export interface Art {
   other: string;
   /** Text drawn on a jar fill, a block or a ribbon. */
   ink: string;
+  /** The tree trunk's outer edge, darker than any ring. */
+  bark: string;
+  /** The nursery scale: its painted body, its dial face and its needle. */
+  enamel: string;
+  face: string;
+  needle: string;
 }
 
 export function artTokens(mode: 'light' | 'dark'): Art {
@@ -186,6 +192,10 @@ export function artTokens(mode: 'light' | 'dark'): Art {
       dairy: '#b9d6ee',
       other: '#cdc3dd',
       ink: '#33291f',
+      bark: '#7a5a3c',
+      enamel: '#c9dceb',
+      face: '#fffaf0',
+      needle: '#c4524a',
     };
   }
   return {
@@ -203,5 +213,9 @@ export function artTokens(mode: 'light' | 'dark'): Art {
     dairy: '#6f93b3',
     other: '#8c80a3',
     ink: '#fbf5ea',
+    bark: '#3b2c1e',
+    enamel: '#4d6273',
+    face: '#35322d',
+    needle: '#e07a70',
   };
 }

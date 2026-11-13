@@ -12,28 +12,22 @@ import type { Measure } from '@/lib/growth/percentiles';
 import { useTokens } from '../Providers';
 import type { Art } from '../theme/palettes';
 import { SiblingLegend } from './classic';
+import { svgProps, W, wobble } from './drawing';
+import { useFresh } from './fresh';
+import { ScaleDial, SiblingScale, SiblingTrees, TreeRings } from './nurseryGrowth';
 import { foodsByGroup, shortAge } from './summaries';
 import type { DisplayTheme, EntriesSlotProps, GrowthSlotProps, SiblingsSlotProps } from './types';
 
 // Nursery Shelf: the record drawn as things in a child's room. Heights are
-// pencil marks on a doorframe, foods fill jars, words stack up as alphabet
-// blocks, firsts hang as ribbons from a shelf.
+// pencil marks on a doorframe, weights a nursery scale, head size the rings
+// of a tree (nurseryGrowth.tsx); foods fill jars, words stack up as alphabet
+// blocks, firsts hang as ribbons from a shelf. Anything new since this phone
+// last showed a display bounces once (fresh.ts).
 //
 // Every drawing is original SVG built here from the data. Each is hidden
 // from screen readers, which get the same facts as a sentence
 // (summaries.ts); anything the picture says by colour or position it also
 // says in drawn text.
-
-const W = 340;
-const svgProps = { width: '100%', 'aria-hidden': true, style: { display: 'block', fontFamily: 'inherit' } } as const;
-
-// A stable pseudo-random number in [-1, 1] from a string, so hand-drawn
-// wobble is the same on every render and on the server.
-function wobble(seed: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 16777619);
-  return ((h >>> 0) % 2001) / 1000 - 1;
-}
 
 // --- Doorframe ----------------------------------------------------------------
 
@@ -93,9 +87,10 @@ interface MarksProps {
   anchor: 'start' | 'end';
   dashed?: boolean;
   color: string;
+  fresh?: ReadonlySet<string>;
 }
 
-function PencilMarks({ points, measure, y, x1, x2, labelX, anchor, dashed, color }: MarksProps) {
+function PencilMarks({ points, measure, y, x1, x2, labelX, anchor, dashed, color, fresh }: MarksProps) {
   const withLabel = labelled(points, y);
   const lastId = points[points.length - 1]?.id;
   return (
@@ -107,7 +102,7 @@ function PencilMarks({ points, measure, y, x1, x2, labelX, anchor, dashed, color
         // An unlabelled mark is a short tick, so it reads as "also measured here".
         const end = full ? x2 : x1 + (x2 - x1) * 0.55;
         return (
-          <g key={p.id}>
+          <g key={p.id} className={fresh?.has(p.id) ? 'ls-pop' : undefined}>
             <line x1={x1} y1={at - tilt} x2={end} y2={at + tilt} stroke={color} strokeWidth={p.id === lastId ? 2.6 : 1.7} strokeLinecap="round" strokeDasharray={dashed ? '5 4' : undefined} />
             {full && (
               <text x={labelX} y={at + 4} textAnchor={anchor} style={{ fontSize: 12, fill: color, fontWeight: p.id === lastId ? 800 : 600, fontFamily: 'inherit' }}>
@@ -121,15 +116,29 @@ function PencilMarks({ points, measure, y, x1, x2, labelX, anchor, dashed, color
   );
 }
 
-function Doorframe({ measure, points }: GrowthSlotProps) {
+function Doorframe({ baby, measure, points }: GrowthSlotProps) {
   const { art } = useTokens();
+  const fresh = useFresh(`growth:${measure}:${baby.id}`, points.map((p) => p.id));
   const y = points.length ? heightScale(points.map((p) => p.value)) : () => 0;
   return (
     <svg viewBox={`0 0 ${W} ${DOOR_H}`} {...svgProps}>
       <Jamb x={34} width={62} />
-      <PencilMarks points={points} measure={measure} y={y} x1={40} x2={92} labelX={106} anchor="start" color={art.pencil} />
+      <PencilMarks points={points} measure={measure} y={y} x1={40} x2={92} labelX={106} anchor="start" color={art.pencil} fresh={fresh} />
     </svg>
   );
+}
+
+/** Each measure drawn with the thing it's measured by. */
+function Growth(props: GrowthSlotProps) {
+  if (props.measure === 'weight') return <ScaleDial {...props} />;
+  if (props.measure === 'head') return <TreeRings {...props} />;
+  return <Doorframe {...props} />;
+}
+
+function Siblings(props: SiblingsSlotProps) {
+  if (props.measure === 'weight') return <SiblingScale {...props} />;
+  if (props.measure === 'head') return <SiblingTrees {...props} />;
+  return <SiblingDoorframe {...props} />;
 }
 
 function SiblingDoorframe({ measure, series }: SiblingsSlotProps) {
@@ -157,7 +166,7 @@ const JAR = { w: 66, h: 74, cellW: W / 3, cellH: 128 };
 // if that is higher, so jars fill visibly from the first few foods.
 const JAR_FULL_AT = 6;
 
-function Jar({ group, count, fullAt, col, row }: { group: FoodGroup; count: number; fullAt: number; col: number; row: number }) {
+function Jar({ group, count, fullAt, col, row, hop }: { group: FoodGroup; count: number; fullAt: number; col: number; row: number; hop: boolean }) {
   const { art, ls } = useTokens();
   const clip = useId();
   const x = col * JAR.cellW + (JAR.cellW - JAR.w) / 2;
@@ -165,7 +174,7 @@ function Jar({ group, count, fullAt, col, row }: { group: FoodGroup; count: numb
   const level = count ? Math.max(0.14, Math.min(1, count / fullAt)) : 0;
   const top = y + JAR.h - level * (JAR.h - 6);
   return (
-    <g>
+    <g className={hop ? 'ls-hop' : undefined}>
       <clipPath id={clip}>
         <rect x={x} y={y} width={JAR.w} height={JAR.h} rx={13} />
       </clipPath>
@@ -187,8 +196,11 @@ function Jar({ group, count, fullAt, col, row }: { group: FoodGroup; count: numb
   );
 }
 
-function Jars({ entries }: EntriesSlotProps) {
+function Jars({ baby, entries }: EntriesSlotProps) {
   const { ls } = useTokens();
+  const fresh = useFresh(`foods:${baby.id}`, entries.map((e) => e.id));
+  // A new food makes its group's jar hop.
+  const hopping = new Set(entries.filter((e) => fresh.has(e.id)).map((e) => e.foodGroup ?? 'other'));
   const groups = foodsByGroup(entries);
   const fullAt = Math.max(JAR_FULL_AT, ...Object.values(groups));
   const flagged = [...new Set(entries.filter((e) => e.allergyFlag).map((e) => e.title))];
@@ -196,7 +208,7 @@ function Jars({ entries }: EntriesSlotProps) {
     <Stack spacing={1}>
       <svg viewBox={`0 0 ${W} ${JAR.cellH * 2}`} {...svgProps}>
         {JAR_GROUPS.map((g, i) => (
-          <Jar key={g} group={g} count={groups[g]} fullAt={fullAt} col={i % 3} row={Math.floor(i / 3)} />
+          <Jar key={g} group={g} count={groups[g]} fullAt={fullAt} col={i % 3} row={Math.floor(i / 3)} hop={hopping.has(g)} />
         ))}
       </svg>
       {flagged.length > 0 && (
@@ -218,13 +230,17 @@ const BLOCK_GAP = 6;
 const ROWS = [6, 6, 5, 4, 3, 2, 1];
 const BLOCK_FILLS: (keyof Art)[] = ['fruit', 'dairy', 'grain', 'vegetable', 'other', 'protein'];
 
-function Blocks({ entries }: EntriesSlotProps) {
+function Blocks({ baby, entries }: EntriesSlotProps) {
   const { art, ls } = useTokens();
+  const fresh = useFresh(`words:${baby.id}`, entries.map((e) => e.id));
   const counts = new Map<string, number>();
+  // A new word drops its letter's block back onto the pile.
+  const dropping = new Set<string>();
   for (const e of entries) {
     const first = e.title.trim()[0]?.toUpperCase() ?? '#';
     const letter = /[A-Z]/.test(first) ? first : '#';
     counts.set(letter, (counts.get(letter) ?? 0) + 1);
+    if (fresh.has(e.id)) dropping.add(letter);
   }
   const letters = [...counts.keys()].sort();
   const rows: string[][] = [];
@@ -249,19 +265,22 @@ function Blocks({ entries }: EntriesSlotProps) {
           const fill = art[BLOCK_FILLS[(letter.charCodeAt(0) + r) % BLOCK_FILLS.length]];
           return (
             <g key={letter} transform={`rotate(${(wobble(letter) * 3).toFixed(2)} ${x + BLOCK / 2} ${y + BLOCK})`}>
-              <rect x={x} y={y} width={BLOCK} height={BLOCK} rx={8} fill={fill} />
-              <rect x={x + 4} y={y + 4} width={BLOCK - 8} height={BLOCK - 8} rx={5} fill="none" stroke={art.ink} strokeWidth={1} opacity={0.25} />
-              <text x={x + BLOCK / 2} y={y + BLOCK / 2 + 9} textAnchor="middle" style={{ fontSize: 25, fontWeight: 800, fill: art.ink, fontFamily: 'inherit' }}>
-                {letter}
-              </text>
-              {n > 1 && (
-                <g>
-                  <circle cx={x + BLOCK - 5} cy={y + 5} r={10} fill={ls.surface} stroke={art.ink} strokeWidth={1} />
-                  <text x={x + BLOCK - 5} y={y + 9} textAnchor="middle" style={{ fontSize: 11, fontWeight: 800, fill: ls.onSurface, fontFamily: 'inherit' }}>
-                    {n}
-                  </text>
-                </g>
-              )}
+              {/* The bounce sits inside the tilt: a CSS transform would replace the rotate attribute. */}
+              <g className={dropping.has(letter) ? 'ls-drop' : undefined}>
+                <rect x={x} y={y} width={BLOCK} height={BLOCK} rx={8} fill={fill} />
+                <rect x={x + 4} y={y + 4} width={BLOCK - 8} height={BLOCK - 8} rx={5} fill="none" stroke={art.ink} strokeWidth={1} opacity={0.25} />
+                <text x={x + BLOCK / 2} y={y + BLOCK / 2 + 9} textAnchor="middle" style={{ fontSize: 25, fontWeight: 800, fill: art.ink, fontFamily: 'inherit' }}>
+                  {letter}
+                </text>
+                {n > 1 && (
+                  <g>
+                    <circle cx={x + BLOCK - 5} cy={y + 5} r={10} fill={ls.surface} stroke={art.ink} strokeWidth={1} />
+                    <text x={x + BLOCK - 5} y={y + 9} textAnchor="middle" style={{ fontSize: 11, fontWeight: 800, fill: ls.onSurface, fontFamily: 'inherit' }}>
+                      {n}
+                    </text>
+                  </g>
+                )}
+              </g>
             </g>
           );
         });
@@ -281,11 +300,12 @@ function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
 }
 
-function Ribbon({ cx, top, fill, age, title, date }: { cx: number; top: number; fill: string; age: string; title: string; date: string }) {
+function Ribbon({ cx, top, fill, age, title, date, swing }: { cx: number; top: number; fill: string; age: string; title: string; date: string; swing: boolean }) {
   const { art, ls } = useTokens();
   const cy = top + 36;
+  // A new ribbon swings from its pin on the shelf.
   return (
-    <g>
+    <g className={swing ? 'ls-swing' : undefined} style={swing ? { transformOrigin: `${cx}px ${top}px` } : undefined}>
       <line x1={cx} y1={top} x2={cx} y2={cy - 20} stroke={art.woodDark} strokeWidth={1.5} />
       <path d={`M${cx - 12},${cy + 14} l-8,30 l10,-7 l6,9 l4,-28 Z`} fill={fill} />
       <path d={`M${cx + 12},${cy + 14} l8,30 l-10,-7 l-6,9 l-4,-28 Z`} fill={fill} />
@@ -328,6 +348,7 @@ function Keepsakes({ y }: { y: number }) {
 
 function Shelf({ baby, entries, compact }: EntriesSlotProps) {
   const { art } = useTokens();
+  const fresh = useFresh(`firsts:${baby.id}`, entries.map((e) => e.id));
   // The newest ribbons hang first; older ones are counted below and listed in Data.
   const newest = [...entries].reverse();
   const shown = newest.slice(0, compact ? PER_SHELF : PER_SHELF * 3);
@@ -354,6 +375,7 @@ function Shelf({ baby, entries, compact }: EntriesSlotProps) {
                   age={e.date ? shortAge(Math.max(0, ageInMonths(ageOrigin(baby, e.date), e.date))) : '?'}
                   title={truncate(e.title, 15)}
                   date={formatEntryDate(e.date, e.datePrecision).replace('Date not remembered', 'Date not sure')}
+                  swing={fresh.has(e.id)}
                 />
               ))}
             </g>
@@ -372,10 +394,10 @@ function Shelf({ baby, entries, compact }: EntriesSlotProps) {
 export const nurseryTheme: DisplayTheme = {
   id: 'nursery',
   name: 'Nursery Shelf',
-  description: 'Pencil marks on the doorframe, jars, blocks and ribbons.',
-  Growth: Doorframe,
+  description: 'A doorframe, a scale and tree rings, with jars, blocks and ribbons.',
+  Growth,
   Foods: Jars,
   Words: Blocks,
   Firsts: Shelf,
-  Siblings: SiblingDoorframe,
+  Siblings,
 };
