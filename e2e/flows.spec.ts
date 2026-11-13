@@ -106,6 +106,8 @@ test('sign up, set up a household, record a first evening', async ({ page, brows
     await page.getByRole('button', { name: 'Add something for Juniper' }).click();
     await page.getByRole('button', { name: /Word/ }).first().click();
     await page.getByLabel('Word', { exact: true }).fill(word);
+    // Tap away to close the suggestions, which can sit over Save on a short screen.
+    await page.getByRole('heading', { name: 'Add a word' }).click();
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(page.getByText(`${word} saved for Juniper.`)).toBeVisible();
   }
