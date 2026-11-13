@@ -1,0 +1,164 @@
+[
+ {
+  "source": "who",
+  "sex": "male",
+  "measure": "weight",
+  "ageMonths": 0,
+  "p5": 2.603994,
+  "p50": 3.3464,
+  "p95": 4.214527
+ },
+ {
+  "source": "who",
+  "sex": "male",
+  "measure": "weight",
+  "ageMonths": 6,
+  "p5": 6.611702,
+  "p50": 7.934,
+  "p95": 9.481939
+ },
+ {
+  "source": "who",
+  "sex": "male",
+  "measure": "weight",
+  "ageMonths": 12,
+  "p5": 8.052577,
+  "p50": 9.6479,
+  "p95": 11.53526
+ },
+ {
+  "source": "who",
+  "sex": "male",
+  "measure": "weight",
+  "ageMonths": 23,
+  "p5": 9.914417,
+  "p50": 11.9514,
+  "p95": 14.41108
+ },
+ {
+  "source": "who",
+  "sex": "female",
+  "measure": "length",
+  "ageMonths": 0,
+  "p5": 46.08383,
+  "p50": 49.1477,
+  "p95": 52.21157
+ },
+ {
+  "source": "who",
+  "sex": "female",
+  "measure": "length",
+  "ageMonths": 6,
+  "p5": 62.00319,
+  "p50": 65.7311,
+  "p95": 69.45901
+ },
+ {
+  "source": "who",
+  "sex": "female",
+  "measure": "length",
+  "ageMonths": 12,
+  "p5": 69.77953,
+  "p50": 74.015,
+  "p95": 78.25047
+ },
+ {
+  "source": "who",
+  "sex": "female",
+  "measure": "length",
+  "ageMonths": 23,
+  "p5": 80.3,
+  "p50": 85.5202,
+  "p95": 90.7404
+ },
+ {
+  "source": "who",
+  "sex": "male",
+  "measure": "head",
+  "ageMonths": 0,
+  "p5": 32.37241,
+  "p50": 34.4618,
+  "p95": 36.55119
+ },
+ {
+  "source": "who",
+  "sex": "male",
+  "measure": "head",
+  "ageMonths": 6,
+  "p5": 41.32285,
+  "p50": 43.3306,
+  "p95": 45.33835
+ },
+ {
+  "source": "who",
+  "sex": "male",
+  "measure": "head",
+  "ageMonths": 12,
+  "p5": 43.95282,
+  "p50": 46.0661,
+  "p95": 48.17938
+ },
+ {
+  "source": "who",
+  "sex": "male",
+  "measure": "head",
+  "ageMonths": 23,
+  "p5": 45.89043,
+  "p50": 48.1201,
+  "p95": 50.34977
+ },
+ {
+  "source": "cdc",
+  "sex": "female",
+  "measure": "weight",
+  "ageMonths": 36.5,
+  "p5": 11.65541879,
+  "p50": 13.94108332,
+  "p95": 17.3624437
+ },
+ {
+  "source": "cdc",
+  "sex": "female",
+  "measure": "weight",
+  "ageMonths": 60.5,
+  "p5": 14.70923661,
+  "p50": 18.02313904,
+  "p95": 23.75023626
+ },
+ {
+  "source": "cdc",
+  "sex": "male",
+  "measure": "head",
+  "ageMonths": 24.5,
+  "p5": 46.35258644,
+  "p50": 48.72064621,
+  "p95": 51.04084871
+ },
+ {
+  "source": "cdc",
+  "sex": "male",
+  "measure": "head",
+  "ageMonths": 35.5,
+  "p5": 46.85620919,
+  "p50": 49.65422952,
+  "p95": 52.18646448
+ },
+ {
+  "source": "cdc",
+  "sex": "male",
+  "measure": "length",
+  "ageMonths": 30.5,
+  "p5": 85.3469433,
+  "p50": 91.33242379,
+  "p95": 97.66026663
+ },
+ {
+  "source": "cdc",
+  "sex": "male",
+  "measure": "length",
+  "ageMonths": 48.5,
+  "p5": 95.58070273,
+  "p50": 102.5104735,
+  "p95": 109.5219891
+ }
+]

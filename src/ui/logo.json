@@ -1,0 +1,21 @@
+{
+  "size": 512,
+  "radius": 112,
+  "sage": "#8CBFA6",
+  "cream": "#FFFDF8",
+  "deepSage": "#5E9E85",
+  "sole": "M-4,-40 C18,-43 37,-27 37,-5 C37,14 28,30 17,42 C10,50 -4,54 -13,48 C-22,42 -19,30 -21,18 C-23,6 -30,-36 -4,-40 Z",
+  "soleTransform": "translate(3 -1) rotate(-9) scale(1.06)",
+  "toes": [
+    [-21, -58, 13.5],
+    [2, -65, 9.5],
+    [20, -59, 8.5],
+    [34, -47, 7.5],
+    [43, -32, 6.5]
+  ],
+  "feet": [
+    { "x": 158, "y": 408, "scale": 0.95, "rotate": 45, "mirror": false },
+    { "x": 230, "y": 232, "scale": 1.08, "rotate": 45, "mirror": true },
+    { "x": 406, "y": 160, "scale": 1.32, "rotate": 42, "mirror": false }
+  ]
+}
