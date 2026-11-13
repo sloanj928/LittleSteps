@@ -5,7 +5,9 @@ import { db } from '@/db/client';
 import { DATE_PRECISIONS, entries, ENTRY_KINDS, FOOD_GROUPS, REACTIONS } from '@/db/schema';
 import { addDays, isIsoDate } from '@/lib/dates';
 import { guessFoodGroup } from '@/lib/foods';
+import { isListKind, nameKey } from '@/lib/match';
 import { milestoneByKey } from '@/lib/milestones';
+import { ApiError } from './api';
 import type { Entry } from '@/lib/types';
 
 // The server only knows UTC's day; a parent a few hours ahead of it is
@@ -49,21 +51,35 @@ export function entryColumns(input: EntryInput) {
   };
 }
 
+type Named = Pick<EntryInput, 'kind' | 'title' | 'milestoneKey'>;
+
 /**
- * An existing first or word that says the same thing. Two parents logging
- * "first steps" the same evening is the usual cause; the form shows the
- * existing one and lets them keep both if they really mean it. Foods repeat
- * by nature and notes are free text, so neither is checked.
+ * An existing entry that says the same thing. For a first, two parents
+ * logging "first steps" the same evening is the usual cause, so the form
+ * shows the existing one and lets them keep both if they really mean it.
+ * Foods and words are lists and never keep both (`refuseListDuplicate`).
+ * Notes are free text and never checked.
  */
-export async function findDuplicate(babyId: string, input: Pick<EntryInput, 'kind' | 'title' | 'milestoneKey'>, exceptId?: string): Promise<Entry | undefined> {
-  if (input.kind !== 'first' && input.kind !== 'word') return undefined;
+export async function findDuplicate(babyId: string, input: Named, exceptId?: string): Promise<Entry | undefined> {
+  if (input.kind === 'note') return undefined;
   const d = await db();
+  const scope = and(eq(entries.babyId, babyId), eq(entries.kind, input.kind), isNull(entries.deletedAt), exceptId ? ne(entries.id, exceptId) : undefined);
+  if (isListKind(input.kind)) {
+    // Matched in JS, not SQL: SQLite's lower() knows no accents, and the
+    // rule has to be the one the form uses. A baby's list is short.
+    const key = nameKey(input.title);
+    return (await d.select().from(entries).where(scope)).find((e) => nameKey(e.title) === key);
+  }
   const same = input.milestoneKey ? eq(entries.milestoneKey, input.milestoneKey) : sql`lower(${entries.title}) = ${input.title.toLowerCase()}`;
-  const [hit] = await d
-    .select()
-    .from(entries)
-    .where(and(eq(entries.babyId, babyId), eq(entries.kind, input.kind), isNull(entries.deletedAt), same, exceptId ? ne(entries.id, exceptId) : undefined));
+  const [hit] = await d.select().from(entries).where(and(scope, same));
   return hit;
+}
+
+/** A food or word already on the list is refused outright, on add, rename and undelete alike. */
+export async function refuseListDuplicate(babyId: string, input: Named, exceptId?: string): Promise<void> {
+  if (!isListKind(input.kind)) return;
+  const existing = await findDuplicate(babyId, input, exceptId);
+  if (existing) throw new ApiError(409, 'DUPLICATE', `${existing.title} is already on the list.`, { existing, strict: true });
 }
 
 /** The fields an edit can change, as kept in history and restored from it. */

@@ -7,6 +7,7 @@ import { PASSWORD_MIN } from '@/lib/auth/rules';
 import { api, reloadAt } from '@/ui/api';
 import { AuthPage } from '@/ui/AuthPage';
 import { FormError, PasswordInput, PinInput, SubmitButton, TextInput } from '@/ui/fields';
+import { homeAfterSignIn } from '@/ui/invite';
 import { useSubmit } from '@/ui/useSubmit';
 
 export default function ForgotPage() {
@@ -15,7 +16,7 @@ export default function ForgotPage() {
   const [newPassword, setNewPassword] = useState('');
   const form = useSubmit(
     () => api('/api/auth/reset', { method: 'POST', body: { username, pin, newPassword } }),
-    () => reloadAt('/'),
+    () => reloadAt(homeAfterSignIn()),
   );
   return (
     <AuthPage

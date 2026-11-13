@@ -5,7 +5,7 @@ import { entries, entryHistory, users } from '@/db/schema';
 import { nowIso } from '@/lib/dates';
 import { requireEntry } from '@/lib/server/access';
 import { ApiError, json, parseBody, requireUser, route, validate } from '@/lib/server/api';
-import { entryColumns, EntryFields, snapshot } from '@/lib/server/entries';
+import { entryColumns, EntryFields, refuseListDuplicate, snapshot } from '@/lib/server/entries';
 
 /** An entry with its edit history, newest change first. */
 export const GET = route<{ id: string }>(async (req, { id }) => {
@@ -33,6 +33,8 @@ export const PATCH = route<{ id: string }>(async (req, { id }) => {
   const d = await db();
 
   if (raw.restore === true) {
+    // Someone may have added the same food or word while this one was deleted.
+    await refuseListDuplicate(entry.babyId, entry, id);
     const [restored] = await d.update(entries).set({ deletedAt: null }).where(eq(entries.id, id)).returning();
     return json({ entry: restored });
   }
@@ -54,6 +56,7 @@ export const PATCH = route<{ id: string }>(async (req, { id }) => {
     }
     next = entryColumns(body);
   }
+  await refuseListDuplicate(entry.babyId, next, id);
   const saved = await d.transaction(async (tx) => {
     await tx.insert(entryHistory).values({ id: crypto.randomUUID(), entryId: id, changedBy: user.id, beforeJson: JSON.stringify(snapshot(entry)) });
     const [row] = await tx.update(entries).set({ ...next, updatedAt: nowIso() }).where(eq(entries.id, id)).returning();

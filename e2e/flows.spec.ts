@@ -25,7 +25,7 @@ async function noSideScroll(page: Page) {
   expect(overflow, 'page scrolls sideways').toBeLessThanOrEqual(0);
 }
 
-test('sign up, set up a household, record a first evening', async ({ page, browserName }) => {
+test('sign up, set up a household, record a first evening', async ({ page, browser, browserName }) => {
   // One long journey of about thirty saves; WebKit on Windows runs it in roughly 35 seconds.
   test.setTimeout(90_000);
   const problems = collectProblems(page);
@@ -90,6 +90,16 @@ test('sign up, set up a household, record a first evening', async ({ page, brows
   await page.getByLabel(/Possible allergic reaction/).check();
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByText('Peanut butter saved for Juniper.')).toBeVisible();
+
+  // A misspelling still finds Banana in the dropdown, and saving it twice is off the table.
+  await page.getByRole('button', { name: 'Add something for Juniper' }).click();
+  await page.getByRole('button', { name: /Food/ }).first().click();
+  await page.getByLabel('Food', { exact: true }).fill('bananna');
+  await page.getByRole('option', { name: /Banana.*Added/ }).click();
+  await expect(page.getByText('is already on the list')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+  await shot(page, '04-food-duplicate');
+  await page.getByRole('button', { name: 'Close' }).click();
 
   // Words.
   for (const word of ['Dada', 'Ball', 'Dog']) {
@@ -158,14 +168,41 @@ test('sign up, set up a household, record a first evening', async ({ page, brows
   await expect(page.getByText('Edit history')).toBeVisible();
   await shot(page, '10-entry');
 
-  // An invite code is shown once.
+  // An invite link is shown once; someone new signs up through it and lands in the household.
   await page.goto('/more/household');
-  await page.getByRole('button', { name: 'Create invite code' }).click();
+  await page.getByRole('button', { name: 'Create invite link' }).click();
   await page.getByLabel('Your password').fill(PASSWORD);
   await page.getByRole('button', { name: 'Create', exact: true }).click();
-  await expect(page.getByText('This is the only time the code is shown.')).toBeVisible();
+  await expect(page.getByText("This is the only time it's shown.")).toBeVisible();
+  const link = await page.getByRole('textbox', { name: 'Link' }).inputValue();
+  expect(link).toMatch(/\/join#[A-Z0-9]{8}$/);
+  await expect(page.getByRole('button', { name: /(Share|Copy) link/ })).toBeVisible();
+  await page.waitForTimeout(400); // let the dialog finish fading in
   await shot(page, '11-invite');
   await page.getByRole('button', { name: 'Done' }).click();
+
+  // Their own context: a different person on a different phone, same device profile.
+  const guestContext = await browser.newContext(test.info().project.use);
+  const guest = await guestContext.newPage();
+  const guestProblems = collectProblems(guest);
+  await guest.goto(link);
+  await expect(guest.getByRole('heading', { name: "You're invited" })).toBeVisible();
+  // The code leaves the address bar once it's remembered.
+  await expect(guest).toHaveURL(/\/join$/);
+  await guest.getByRole('link', { name: 'Create an account' }).click();
+  await expect(guest.getByRole('heading', { name: 'Create your account' })).toBeVisible();
+  await guest.getByLabel('Username').fill(`grandma_${browserName}`);
+  await guest.getByLabel('Password', { exact: true }).fill(PASSWORD);
+  await guest.getByLabel('6-digit PIN').fill('274916');
+  await guest.getByLabel('PIN again').fill('274916');
+  await guest.getByRole('button', { name: 'Create account' }).click();
+  // The loading frame shares the heading, so wait for the button.
+  await expect(guest.getByRole('button', { name: 'Join', exact: true })).toBeVisible();
+  await shot(guest, '11b-join');
+  await guest.getByRole('button', { name: 'Join', exact: true }).click();
+  await expect(guest.getByRole('heading', { name: 'Juniper', level: 1 })).toBeVisible();
+  expect(guestProblems).toEqual([]);
+  await guestContext.close();
 
   // Dark mode follows the device, and nothing scrolls sideways at the narrowest phone width.
   await page.emulateMedia({ colorScheme: 'dark' });

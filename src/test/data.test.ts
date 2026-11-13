@@ -42,12 +42,31 @@ describe('entries', () => {
     expect((await add(w.editor, { ...first, confirmDuplicate: true })).status).toBe(201);
   });
 
-  it('matches custom firsts and words whatever their case, but lets foods repeat', async () => {
-    await add(w.owner, { kind: 'word', title: 'Dada', date: '2026-10-01', datePrecision: 'day' });
-    expect((await add(w.owner, { kind: 'word', title: 'dada', date: '2026-10-05', datePrecision: 'day' })).code).toBe('DUPLICATE');
+  it('refuses a food or word already on the list, however it is spelled, even when asked to keep both', async () => {
+    await add(w.owner, { kind: 'word', title: 'Uh-oh', date: '2026-10-01', datePrecision: 'day' });
+    const word = await add(w.owner, { kind: 'word', title: 'uh oh', date: '2026-10-05', datePrecision: 'day', confirmDuplicate: true });
+    expect(word.code).toBe('DUPLICATE');
+    expect(word.data.error.details.strict).toBe(true);
     const food = { kind: 'food', title: 'Banana', date: '2026-10-01', datePrecision: 'day', reaction: 'loved' };
     expect((await add(w.owner, food)).status).toBe(201);
-    expect((await add(w.owner, food)).status).toBe(201);
+    expect((await add(w.owner, { ...food, title: 'bananas', confirmDuplicate: true })).code).toBe('DUPLICATE');
+    // The same name is fine as the other kind, and a different word is a different word.
+    expect((await add(w.owner, { kind: 'word', title: 'Banana', date: '2026-10-01', datePrecision: 'day' })).status).toBe(201);
+    expect((await add(w.owner, { kind: 'word', title: 'Ball', date: '2026-10-01', datePrecision: 'day' })).status).toBe(201);
+  });
+
+  it('refuses renaming or restoring a food into one already on the list', async () => {
+    const food = (title: string) => ({ kind: 'food', title, date: '2026-10-01', datePrecision: 'day' });
+    const pear = (await add(w.owner, food('Pear'))).data.entry as Entry;
+    const peach = (await add(w.owner, food('Peach'))).data.entry as Entry;
+    const rename = await call(patchEntry, { method: 'PATCH', cookie: w.owner, params: { id: peach.id }, body: { ...food('pear'), expectedUpdatedAt: peach.updatedAt } });
+    expect(rename.code).toBe('DUPLICATE');
+    // Saving an entry under its own name is not a duplicate of itself.
+    expect((await call(patchEntry, { method: 'PATCH', cookie: w.owner, params: { id: pear.id }, body: { ...food('Pear'), note: 'Ripe', expectedUpdatedAt: pear.updatedAt } })).status).toBe(200);
+
+    await call(deleteEntry, { method: 'DELETE', cookie: w.owner, params: { id: pear.id } });
+    expect((await add(w.owner, food('Pear'))).status).toBe(201);
+    expect((await call(patchEntry, { method: 'PATCH', cookie: w.owner, params: { id: pear.id }, body: { restore: true } })).code).toBe('DUPLICATE');
   });
 
   it('files a food under its group and keeps the allergy flag apart from the reaction', async () => {

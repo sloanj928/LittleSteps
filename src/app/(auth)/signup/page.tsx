@@ -8,6 +8,7 @@ import { PASSWORD_MIN, passwordProblem, pinProblem, usernameProblem } from '@/li
 import { api, reloadAt } from '@/ui/api';
 import { AuthPage } from '@/ui/AuthPage';
 import { FormError, PasswordInput, PinInput, SubmitButton, TextInput } from '@/ui/fields';
+import { homeAfterSignIn } from '@/ui/invite';
 import { useSubmit } from '@/ui/useSubmit';
 
 export default function SignUpPage() {
@@ -26,7 +27,7 @@ export default function SignUpPage() {
   };
   const form = useSubmit(
     () => api('/api/auth/signup', { method: 'POST', body: { username, password, pin } }),
-    () => reloadAt('/'),
+    () => reloadAt(homeAfterSignIn()),
   );
   const submit = () => {
     setChecked(true);

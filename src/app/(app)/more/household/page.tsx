@@ -1,6 +1,7 @@
 'use client';
 
 import CopyIcon from '@mui/icons-material/ContentCopy';
+import ShareIcon from '@mui/icons-material/IosShare';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
@@ -21,6 +22,7 @@ import { useApp } from '@/ui/app/AppShell';
 import { ConfirmDialog, LoadError, Loading, PageHeader, PasswordDialog } from '@/ui/app/states';
 import { Block, JoinOrCreate } from '@/ui/app/JoinOrCreate';
 import { SubmitButton, TextInput } from '@/ui/fields';
+import { inviteLink } from '@/ui/invite';
 import { useToast, useTokens } from '@/ui/Providers';
 import { useRefreshAll } from '@/ui/queries';
 import { useSubmit } from '@/ui/useSubmit';
@@ -137,12 +139,25 @@ function Invites({ household }: { household: HouseholdSummary }) {
   };
   // Shown in two groups so it reads aloud and copies down easily.
   const spaced = issued ? `${issued.code.slice(0, 4)} ${issued.code.slice(4)}` : '';
+  const link = issued ? inviteLink(issued.code) : '';
+  const copy = (text: string, what: string) =>
+    void navigator.clipboard?.writeText(text).then(
+      () => toast(`${what} copied.`),
+      () => toast(`Copying is blocked here. Please write the ${what.toLowerCase()} down.`),
+    );
+  // The phone's own share sheet where there is one (Messages, WhatsApp...);
+  // otherwise the link goes to the clipboard. Closing the sheet isn't an error.
+  const canShare = Boolean(issued) && typeof navigator.share === 'function';
+  const share = () => {
+    if (!canShare) return copy(link, 'Link');
+    navigator.share({ title: 'Little Steps', text: `Join ${household.name} on Little Steps`, url: link }).catch(() => {});
+  };
 
   return (
     <Stack spacing={2}>
-      <Typography color="text.secondary">An invite code lets one person join. It works once and lasts 48 hours. People join as view-only; you can change their role here afterwards.</Typography>
+      <Typography color="text.secondary">An invite link lets one person join. It works once and lasts 48 hours. People join as view-only; you can change their role here afterwards.</Typography>
       <Button variant="contained" sx={{ alignSelf: 'flex-start' }} onClick={() => setAsking(true)}>
-        Create invite code
+        Create invite link
       </Button>
       {!data ? (
         error ? (
@@ -154,7 +169,7 @@ function Invites({ household }: { household: HouseholdSummary }) {
         data.invites.map((invite) => (
           <Stack key={invite.id} direction="row" spacing={1} sx={{ alignItems: 'center' }}>
             <Typography sx={{ flex: 1 }} color="text.secondary">
-              Unused code from {invite.createdBy}, expires {day(invite.expiresAt)}
+              Unused invite from {invite.createdBy}, expires {day(invite.expiresAt)}
             </Typography>
             <Button onClick={() => revoke(invite.id)}>Revoke</Button>
           </Stack>
@@ -162,36 +177,31 @@ function Invites({ household }: { household: HouseholdSummary }) {
       )}
       <PasswordDialog
         open={asking}
-        title="Create an invite code"
+        title="Create an invite link"
         confirmLabel="Create"
         action={async (password) => setIssued(await api<{ code: string; expiresAt: string }>(`/api/households/${household.id}/invites`, { method: 'POST', body: { password } }))}
         onClose={() => setAsking(false)}
         onDone={() => void refresh()}
       />
       <Dialog open={Boolean(issued)} onClose={() => setIssued(null)} fullWidth maxWidth="xs">
-        <DialogTitle>Invite code</DialogTitle>
+        <DialogTitle>Invite link</DialogTitle>
         <DialogContent>
           <Stack spacing={2}>
             <Typography component="p" aria-label={`Code: ${issued?.code.split('').join(' ')}`} sx={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '0.12em', textAlign: 'center', py: 2, borderRadius: 4, bgcolor: ls.surfaceContainerHigh, fontVariantNumeric: 'tabular-nums' }}>
               {spaced}
             </Typography>
-            <Alert severity="info">This is the only time the code is shown. Share it with the person you&apos;re inviting; they enter it under More, Household, Join a household.</Alert>
+            <TextField label="Link" value={link} slotProps={{ htmlInput: { readOnly: true }, inputLabel: { shrink: true } }} onFocus={(e) => e.target.select()} />
+            <Alert severity="info">This is the only time it&apos;s shown. Send the link, or read out the code; they can enter it under More, Household.</Alert>
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2.5 }}>
-          <Button
-            startIcon={<CopyIcon />}
-            onClick={() => {
-              void navigator.clipboard?.writeText(issued!.code).then(
-                () => toast('Code copied.'),
-                () => toast('Copying is blocked here. Please write the code down.'),
-              );
-            }}
-          >
-            Copy
+        <DialogActions sx={{ px: 3, pb: 2.5, flexWrap: 'wrap', gap: 1, '& > :not(style) ~ :not(style)': { ml: 0 } }}>
+          <Button onClick={() => setIssued(null)}>Done</Button>
+          <Button startIcon={<CopyIcon />} onClick={() => copy(issued!.code, 'Code')}>
+            Copy code
           </Button>
-          <Button variant="contained" onClick={() => setIssued(null)}>
-            Done
+          {/* The dialog only opens after a tap, so reading navigator here can't split server and client renders. */}
+          <Button variant="contained" startIcon={canShare ? <ShareIcon /> : <CopyIcon />} onClick={share}>
+            {canShare ? 'Share link' : 'Copy link'}
           </Button>
         </DialogActions>
       </Dialog>

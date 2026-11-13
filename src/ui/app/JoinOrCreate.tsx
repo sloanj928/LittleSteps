@@ -6,6 +6,7 @@ import Typography from '@mui/material/Typography';
 import { useState, type ReactNode } from 'react';
 import { api } from '../api';
 import { FormError, SubmitButton, TextInput } from '../fields';
+import { inviteCodeFrom } from '../invite';
 import { useToast } from '../Providers';
 import { useRefreshAll } from '../queries';
 import { useSubmit } from '../useSubmit';
@@ -53,7 +54,7 @@ export function JoinOrCreate({ onDone }: { onDone?: () => void }) {
       <Block title="Join a household">
         <Stack component="form" spacing={2} noValidate onSubmit={(e) => (e.preventDefault(), void join.run())}>
           <FormError message={join.error} />
-          <TextInput label="Invite code" value={code} onChange={(v) => setCode(v.toUpperCase())} problem={join.fields.code} autoCapitalize="characters" autoComplete="off" spellCheck={false} helperText="8 letters and numbers, from a household owner." />
+          <TextInput label="Invite code" value={code} onChange={(v) => setCode(v.includes('#') ? inviteCodeFrom(v) : v.toUpperCase())} problem={join.fields.code} autoCapitalize="characters" autoComplete="off" spellCheck={false} helperText="8 letters and numbers, or paste the invite link." />
           <SubmitButton busy={join.busy} sx={{ alignSelf: 'flex-start' }}>
             Join
           </SubmitButton>

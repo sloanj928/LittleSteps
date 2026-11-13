@@ -5,6 +5,7 @@ import { PASSWORD_MIN, passwordProblem, pinProblem } from '@/lib/auth/rules';
 import { api, reloadAt } from '@/ui/api';
 import { AuthPage } from '@/ui/AuthPage';
 import { FormError, PasswordInput, PinInput, SubmitButton } from '@/ui/fields';
+import { homeAfterSignIn } from '@/ui/invite';
 import { useSubmit } from '@/ui/useSubmit';
 
 /** The last step of admin recovery: the temporary password only reaches this screen. */
@@ -20,7 +21,7 @@ export function ResetRequiredForm({ username }: { username: string }) {
   };
   const form = useSubmit(
     () => api('/api/auth/complete-reset', { method: 'POST', body: { newPassword, newPin } }),
-    () => reloadAt('/'),
+    () => reloadAt(homeAfterSignIn()),
   );
   const submit = () => {
     setChecked(true);

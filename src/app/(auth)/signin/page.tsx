@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { api, reloadAt } from '@/ui/api';
 import { AuthPage } from '@/ui/AuthPage';
 import { FormError, PasswordInput, SubmitButton, TextInput } from '@/ui/fields';
+import { homeAfterSignIn } from '@/ui/invite';
 import { useSubmit } from '@/ui/useSubmit';
 
 export default function SignInPage() {
@@ -13,7 +14,7 @@ export default function SignInPage() {
   const [password, setPassword] = useState('');
   const form = useSubmit(
     () => api<{ mustReset: boolean }>('/api/auth/signin', { method: 'POST', body: { username, password } }),
-    (res) => reloadAt(res.mustReset ? '/reset-required' : '/'),
+    (res) => reloadAt(res.mustReset ? '/reset-required' : homeAfterSignIn()),
   );
   return (
     <AuthPage

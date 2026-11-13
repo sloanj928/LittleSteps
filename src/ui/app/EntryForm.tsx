@@ -2,7 +2,6 @@
 
 import WarningIcon from '@mui/icons-material/WarningAmberOutlined';
 import Alert from '@mui/material/Alert';
-import Autocomplete from '@mui/material/Autocomplete';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import Chip from '@mui/material/Chip';
@@ -13,18 +12,22 @@ import TextField from '@mui/material/TextField';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
-import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useMemo, useState } from 'react';
 import type { EntryKind, FoodGroup, Reaction } from '@/db/schema';
 import { formatEntryDate, localToday } from '@/lib/dates';
-import { FOOD_GROUP_LABELS, FOOD_SUGGESTIONS, guessFoodGroup } from '@/lib/foods';
+import { FOOD_GROUP_LABELS, guessFoodGroup } from '@/lib/foods';
+import { isListKind, nameKey } from '@/lib/match';
 import { MILESTONES } from '@/lib/milestones';
 import type { Baby, Entry } from '@/lib/types';
 import { api } from '../api';
 import { FormError, SubmitButton, TextInput } from '../fields';
 import { useTokens } from '../Providers';
+import { useBabyBundle } from '../queries';
 import { useSubmit } from '../useSubmit';
 import { DateField, type DateValue } from './DateField';
 import { REACTIONS } from './kinds';
+import { ListNameField } from './ListNameField';
 
 const TITLE_LABEL: Record<EntryKind, string> = { first: 'What happened?', food: 'Food', word: 'Word', note: 'Note' };
 const NOTE_TITLE_MAX = 60;
@@ -45,6 +48,8 @@ interface Props {
 /** Add or edit a first, food, word or note. One form, because they share most of their fields. */
 export function EntryForm({ baby, kind, entry, loggedKeys, initialMilestone, onSaved, onCancel }: Props) {
   const { ls } = useTokens();
+  const router = useRouter();
+  const { data: bundle } = useBabyBundle(baby.id);
   const start = MILESTONES.find((m) => m.key === initialMilestone);
   const [title, setTitle] = useState(entry?.title ?? start?.label ?? '');
   const [milestoneKey, setMilestoneKey] = useState<string | null>(entry?.milestoneKey ?? start?.key ?? null);
@@ -80,7 +85,16 @@ export function EntryForm({ baby, kind, entry, loggedKeys, initialMilestone, onS
     (res) => onSaved(res.entry),
   );
 
-  const existing = form.code === 'DUPLICATE' ? (form.details.existing as Entry) : null;
+  // The rest of this baby's food or word list, for the dropdown and the duplicate check.
+  const listed = useMemo(() => (isListKind(kind) ? (bundle?.entries ?? []).filter((e) => e.kind === kind && e.id !== entry?.id) : []), [bundle, kind, entry?.id]);
+  const onList = title.trim() ? listed.find((e) => nameKey(e.title) === nameKey(title)) : undefined;
+  const refused = form.code === 'DUPLICATE' && form.details.strict ? (form.details.existing as Entry) : null;
+  const sameName = onList ?? refused;
+  const existing = form.code === 'DUPLICATE' && !refused ? (form.details.existing as Entry) : null;
+  const openEntry = (id: string) => {
+    onCancel();
+    router.push(`/entry/${id}`);
+  };
   const theirs = form.code === 'CONFLICT' ? (form.details.entry as Entry) : null;
   const library = MILESTONES.filter((m) => !loggedKeys?.has(m.key) || m.key === milestoneKey);
 
@@ -89,11 +103,20 @@ export function EntryForm({ baby, kind, entry, loggedKeys, initialMilestone, onS
     // Typing over a library first makes it a custom one.
     if (milestoneKey && value !== MILESTONES.find((m) => m.key === milestoneKey)?.label) setMilestoneKey(null);
     setConfirmDuplicate(false);
+    // A refusal names the old title; once it changes, that alert is stale.
+    if (form.code === 'DUPLICATE') form.clear();
   };
 
   return (
     <Stack component="form" spacing={2.5} noValidate onSubmit={(e) => (e.preventDefault(), void form.run())}>
-      {existing ? (
+      {sameName ? (
+        <Alert severity="info" role="alert">
+          <strong>{sameName.title}</strong> is already on the list ({formatEntryDate(sameName.date, sameName.datePrecision)}). Open it to change it or add a note.
+          <Button sx={{ display: 'flex', mt: 1 }} variant="outlined" onClick={() => openEntry(sameName.id)}>
+            Open {sameName.title}
+          </Button>
+        </Alert>
+      ) : existing ? (
         <Alert severity="info" role="alert" action={null}>
           <strong>{existing.title}</strong> is already saved ({formatEntryDate(existing.date, existing.datePrecision)}). If this is a different moment, you can save it as well.
           <Button
@@ -160,14 +183,8 @@ export function EntryForm({ baby, kind, entry, loggedKeys, initialMilestone, onS
         </Stack>
       )}
 
-      {kind === 'food' ? (
-        <Autocomplete
-          freeSolo
-          options={FOOD_SUGGESTIONS}
-          inputValue={title}
-          onInputChange={(_, value) => pickTitle(value)}
-          renderInput={(params) => <TextField {...params} label={TITLE_LABEL.food} error={Boolean(form.fields.title)} helperText={form.fields.title} />}
-        />
+      {isListKind(kind) ? (
+        <ListNameField kind={kind} label={TITLE_LABEL[kind]} value={title} onChange={pickTitle} existing={listed} problem={form.fields.title} />
       ) : (
         !isNote && <TextInput label={TITLE_LABEL[kind]} value={title} onChange={pickTitle} problem={form.fields.title} slotProps={{ htmlInput: { maxLength: 120 } }} />
       )}
@@ -230,7 +247,9 @@ export function EntryForm({ baby, kind, entry, loggedKeys, initialMilestone, onS
 
       <Stack direction="row" spacing={1.5} sx={{ justifyContent: 'flex-end' }}>
         <Button onClick={onCancel}>Cancel</Button>
-        <SubmitButton busy={form.busy}>{confirmDuplicate ? 'Save as well' : 'Save'}</SubmitButton>
+        <SubmitButton busy={form.busy} disabled={form.busy || Boolean(onList)}>
+          {confirmDuplicate ? 'Save as well' : 'Save'}
+        </SubmitButton>
       </Stack>
     </Stack>
   );
